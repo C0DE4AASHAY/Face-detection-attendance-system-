@@ -41,8 +41,9 @@ router.post("/register", verifyToken, faceScanLimiter, async (req, res) => {
                 body: JSON.stringify({
                     image,
                     stored_embeddings: storedEmbeddings,
-                    threshold: 0.65 // Tunable duplicate threshold
+                    threshold: 0.65
                 }),
+                signal: AbortSignal.timeout(90000),
             });
 
             const dupData = await dupRes.json();
@@ -60,6 +61,7 @@ router.post("/register", verifyToken, faceScanLimiter, async (req, res) => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ image }),
+            signal: AbortSignal.timeout(90000),
         });
 
         if (!embedRes.ok) {
@@ -122,8 +124,9 @@ router.post("/scan", verifyToken, faceScanLimiter, async (req, res) => {
             body: JSON.stringify({
                 image,
                 stored_embeddings: storedEmbeddings,
-                threshold: 0.55 // default match threshold
+                threshold: 0.55
             }),
+            signal: AbortSignal.timeout(90000),
         });
 
         if (!matchRes.ok) {

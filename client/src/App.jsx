@@ -656,7 +656,14 @@ export default function App() {
         { id: 'admin-settings', icon: '⚙️', label: 'Settings' },
     ];
 
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
     const nav = isAdmin ? adminNav : studentNav;
+
+    const handleNav = (id) => {
+        setPage(id);
+        setMobileMenuOpen(false);
+    };
 
     const renderPage = () => {
         switch (page) {
@@ -675,13 +682,22 @@ export default function App() {
 
     return (
         <div className="app-layout">
-            <aside className="sidebar">
+            {/* Mobile Header */}
+            <header className="mobile-header">
+                <div className="logo"><div className="logo-icon">🔐</div><div><h1>FaceTrack</h1><span>{isAdmin ? 'Admin' : 'Student'}</span></div></div>
+                <button className="hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>{mobileMenuOpen ? '✕' : '☰'}</button>
+            </header>
+
+            {/* Sidebar Overlay (mobile backdrop) */}
+            <div className={`sidebar-overlay ${mobileMenuOpen ? 'open' : ''}`} onClick={() => setMobileMenuOpen(false)} />
+
+            <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
                 <div className="sidebar-header">
                     <div className="logo"><div className="logo-icon">🔐</div><div><h1>FaceTrack</h1><span>{isAdmin ? 'Admin Panel' : 'Student Portal'}</span></div></div>
                 </div>
                 <nav className="sidebar-nav">
                     {nav.map(n => (
-                        <div key={n.id} className={`nav-item ${page === n.id ? 'active' : ''}`} onClick={() => setPage(n.id)}>
+                        <div key={n.id} className={`nav-item ${page === n.id ? 'active' : ''}`} onClick={() => handleNav(n.id)}>
                             <span className="icon">{n.icon}</span><span>{n.label}</span>
                         </div>
                     ))}
@@ -691,7 +707,7 @@ export default function App() {
                         <div className="user-avatar">{user.thumbnail ? <img src={user.thumbnail} alt="" /> : '👤'}</div>
                         <div><div className="user-name">{user.name}</div><div className="user-role">{user.role}</div></div>
                     </div>
-                    <div className="nav-item" onClick={handleLogout}><span className="icon">🚪</span><span>Logout</span></div>
+                    <div className="nav-item" onClick={() => { handleLogout(); setMobileMenuOpen(false); }}><span className="icon">🚪</span><span>Logout</span></div>
                 </div>
             </aside>
             <main className="main-content">{renderPage()}</main>

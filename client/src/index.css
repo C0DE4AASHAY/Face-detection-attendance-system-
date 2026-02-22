@@ -1263,7 +1263,71 @@ body::after {
     color: var(--text-muted);
 }
 
-/* ── Responsive ───────────────────────────────────────── */
+/* ── Mobile Header (hidden on desktop) ───────────────── */
+.mobile-header {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: rgba(13, 17, 23, 0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+    padding: 0 16px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.mobile-header .logo {
+    gap: 8px;
+}
+
+.mobile-header .logo-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+    border-radius: 8px;
+}
+
+.mobile-header .logo h1 {
+    font-size: 0.95rem;
+}
+
+.mobile-header .logo span {
+    font-size: 0.65rem;
+}
+
+.hamburger {
+    width: 40px;
+    height: 40px;
+    background: var(--bg-glass-hover);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    transition: all var(--transition);
+}
+
+.hamburger:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Mobile sidebar overlay ──────────────────────────── */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 199;
+}
+
+/* ── Responsive — Tablet (≤1100px) ───────────────────── */
 @media (max-width: 1100px) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -1274,22 +1338,265 @@ body::after {
     .settings-grid {
         grid-template-columns: 1fr;
     }
+
+    .main-content {
+        padding: 24px 20px;
+    }
 }
 
+/* ── Responsive — Mobile (≤768px) ────────────────────── */
 @media (max-width: 768px) {
+
+    /* Show mobile header */
+    .mobile-header {
+        display: flex;
+    }
+
+    /* Sidebar becomes overlay drawer */
     .sidebar {
-        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 280px;
+        z-index: 200;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
     }
 
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .sidebar-overlay.open {
+        display: block;
+    }
+
+    /* Main content shifts down below mobile header */
+    .main-content {
+        padding: 72px 16px 24px;
+        width: 100%;
+    }
+
+    .app-layout {
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+    }
+
+    /* Stats */
     .stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
     }
 
+    .stat-card {
+        padding: 14px;
+    }
+
+    .stat-card .stat-value {
+        font-size: 1.35rem;
+    }
+
+    .stat-card .stat-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1.1rem;
+        margin-bottom: 10px;
+    }
+
+    /* Forms */
     .form-row {
         grid-template-columns: 1fr;
     }
 
+    /* Quick actions */
     .quick-actions {
         grid-template-columns: 1fr;
+    }
+
+    /* Camera */
+    .camera-layout {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .camera-box {
+        aspect-ratio: 1;
+    }
+
+    .capture-btn {
+        width: 56px;
+        height: 56px;
+        font-size: 1.2rem;
+    }
+
+    /* Tables */
+    .data-table th,
+    .data-table td {
+        padding: 10px 12px;
+        font-size: 0.8rem;
+    }
+
+    .table-wrap {
+        margin: 0 -16px;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+
+    /* Page */
+    .page-header h2 {
+        font-size: 1.3rem;
+    }
+
+    .page-header p {
+        font-size: 0.85rem;
+    }
+
+    .page-header {
+        margin-bottom: 18px;
+    }
+
+    /* Buttons */
+    .btn-lg {
+        padding: 12px 24px;
+        font-size: 0.9rem;
+    }
+
+    /* Auth card */
+    .auth-card {
+        padding: 24px;
+        margin: 0 8px;
+    }
+
+    .auth-card h2 {
+        font-size: 1.25rem;
+    }
+
+    /* Glass cards */
+    .glass-card {
+        padding: 18px;
+    }
+
+    /* Admin grid to single column */
+    .admin-page>div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Results */
+    .result-card {
+        padding: 20px;
+    }
+
+    .result-card .result-icon {
+        font-size: 2.2rem;
+    }
+
+    .result-card .result-name {
+        font-size: 1.15rem;
+    }
+
+    .result-details {
+        gap: 12px;
+    }
+
+    /* Employee grid */
+    .emp-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 10px;
+    }
+
+    .emp-card {
+        padding: 14px;
+    }
+
+    .emp-card .avatar {
+        width: 48px;
+        height: 48px;
+    }
+
+    .emp-card .emp-actions {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .emp-card .emp-actions .btn {
+        width: 100%;
+        font-size: 0.75rem;
+    }
+
+    /* Settings */
+    .settings-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    /* Filter bar */
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filter-bar input[type="date"],
+    .filter-bar .btn {
+        width: 100%;
+    }
+
+    /* Toast */
+    .toast-container {
+        left: 12px;
+        right: 12px;
+        top: 64px;
+    }
+
+    .toast {
+        min-width: auto;
+        max-width: none;
+        width: 100%;
+    }
+
+    /* Background orbs - shrink */
+    body::before {
+        width: 250px;
+        height: 250px;
+    }
+
+    body::after {
+        width: 200px;
+        height: 200px;
+    }
+}
+
+/* ── Responsive — Small phones (≤480px) ──────────────── */
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .stat-card {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 16px;
+    }
+
+    .stat-card .stat-icon {
+        margin-bottom: 0;
+        flex-shrink: 0;
+    }
+
+    .emp-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .auth-card {
+        padding: 18px;
+    }
+
+    .page-header h2 {
+        font-size: 1.15rem;
     }
 }
