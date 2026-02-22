@@ -60,9 +60,21 @@ async function apiFetch(endpoint, options = {}) {
     return res;
 }
 
+/** Safely parse JSON — returns fallback object on non-JSON responses */
+async function safeJson(res) {
+    if (!res) return null;
+    try {
+        return await res.json();
+    } catch {
+        // Response body isn't valid JSON (e.g. "Internal Server Error")
+        const text = await res.text().catch(() => 'Unknown error');
+        return { success: false, message: text || `Server returned status ${res.status}` };
+    }
+}
+
 export async function apiGet(endpoint) {
     const res = await apiFetch(endpoint);
-    return res?.json();
+    return safeJson(res);
 }
 
 export async function apiPost(endpoint, body) {
@@ -70,7 +82,7 @@ export async function apiPost(endpoint, body) {
         method: 'POST',
         body: JSON.stringify(body),
     });
-    return res?.json();
+    return safeJson(res);
 }
 
 export async function apiPut(endpoint, body) {
@@ -78,12 +90,12 @@ export async function apiPut(endpoint, body) {
         method: 'PUT',
         body: JSON.stringify(body),
     });
-    return res?.json();
+    return safeJson(res);
 }
 
 export async function apiDelete(endpoint) {
     const res = await apiFetch(endpoint, { method: 'DELETE' });
-    return res?.json();
+    return safeJson(res);
 }
 
 export { setTokens, clearTokens, getToken };

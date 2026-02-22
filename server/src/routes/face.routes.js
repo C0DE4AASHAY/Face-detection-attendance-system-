@@ -46,6 +46,12 @@ router.post("/register", verifyToken, faceScanLimiter, async (req, res) => {
                 signal: AbortSignal.timeout(90000),
             });
 
+            if (!dupRes.ok) {
+                let errMsg = "Duplicate check failed.";
+                try { const e = await dupRes.json(); errMsg = e.detail || errMsg; } catch { errMsg = await dupRes.text().catch(() => errMsg); }
+                return res.status(502).json({ success: false, message: errMsg });
+            }
+
             const dupData = await dupRes.json();
 
             if (dupData.is_duplicate) {
@@ -65,8 +71,9 @@ router.post("/register", verifyToken, faceScanLimiter, async (req, res) => {
         });
 
         if (!embedRes.ok) {
-            const errorData = await embedRes.json();
-            return res.status(400).json({ success: false, message: errorData.detail || "Failed to process face." });
+            let errMsg = "Failed to process face.";
+            try { const e = await embedRes.json(); errMsg = e.detail || errMsg; } catch { errMsg = await embedRes.text().catch(() => errMsg); }
+            return res.status(502).json({ success: false, message: errMsg });
         }
 
         const embedData = await embedRes.json();
@@ -130,8 +137,9 @@ router.post("/scan", verifyToken, faceScanLimiter, async (req, res) => {
         });
 
         if (!matchRes.ok) {
-            const errorData = await matchRes.json();
-            return res.status(400).json({ success: false, message: errorData.detail || "Face recognition failed." });
+            let errMsg = "Face recognition failed.";
+            try { const e = await matchRes.json(); errMsg = e.detail || errMsg; } catch { errMsg = await matchRes.text().catch(() => errMsg); }
+            return res.status(502).json({ success: false, message: errMsg });
         }
 
         const matchData = await matchRes.json();
