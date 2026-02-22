@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FaceTrack Pro — Attendance System</title>
+    <meta name="description" content="Professional face detection attendance system with real-time recognition">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="app-layout">
+        <!-- ═══ Sidebar ═══ -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">🔐</div>
+                    <div class="logo-text">
+                        <h1>FaceTrack</h1>
+                        <span>Pro Attendance</span>
+                    </div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+                    <span class="icon">📊</span>
+                    <span>Dashboard</span>
+                </div>
+                <div class="nav-item" data-page="register" onclick="navigateTo('register')">
+                    <span class="icon">👤</span>
+                    <span>Register Face</span>
+                </div>
+                <div class="nav-item" data-page="attendance" onclick="navigateTo('attendance')">
+                    <span class="icon">📷</span>
+                    <span>Mark Attendance</span>
+                </div>
+                <div class="nav-item" data-page="records" onclick="navigateTo('records')">
+                    <span class="icon">📋</span>
+                    <span>Records</span>
+                </div>
+                <div class="nav-item" data-page="employees" onclick="navigateTo('employees')">
+                    <span class="icon">👥</span>
+                    <span>Employees</span>
+                </div>
+                <div class="nav-item" data-page="analytics" onclick="navigateTo('analytics')">
+                    <span class="icon">📈</span>
+                    <span>Analytics</span>
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="nav-item" onclick="exportCSV()">
+                    <span class="icon">⬇</span>
+                    <span>Export CSV</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ═══ Main Content ═══ -->
+        <main class="main-content">
+
+            <!-- ─── Dashboard ─── -->
+            <section id="page-dashboard" class="page-section active">
+                <div class="page-header">
+                    <h2>Dashboard</h2>
+                    <p>Real-time overview of today's attendance</p>
+                </div>
+                <div class="stats-grid" id="stats-grid">
+                    <div class="stat-card blue">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-value" id="stat-total">0</div>
+                        <div class="stat-label">Total Employees</div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-value" id="stat-present">0</div>
+                        <div class="stat-label">Present Today</div>
+                    </div>
+                    <div class="stat-card red">
+                        <div class="stat-icon">❌</div>
+                        <div class="stat-value" id="stat-absent">0</div>
+                        <div class="stat-label">Absent Today</div>
+                    </div>
+                    <div class="stat-card purple">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-value" id="stat-rate">0%</div>
+                        <div class="stat-label">Attendance Rate</div>
+                    </div>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="glass-card">
+                        <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 16px;">Recent Activity</h3>
+                        <div class="activity-feed" id="activity-feed">
+                            <div class="empty-state">
+                                <div class="empty-icon">📋</div>
+                                <h3>No activity yet</h3>
+                                <p>Attendance records will appear here</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 style="font-size: 1rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 16px;">Quick Actions</h3>
+                        <div class="quick-actions">
+                            <div class="quick-action" onclick="navigateTo('register')">
+                                <div class="qa-icon">👤</div>
+                                <div class="qa-text">
+                                    <h4>Register New</h4>
+                                    <p>Add a new employee face</p>
+                                </div>
+                            </div>
+                            <div class="quick-action" onclick="navigateTo('attendance')">
+                                <div class="qa-icon">📷</div>
+                                <div class="qa-text">
+                                    <h4>Scan Face</h4>
+                                    <p>Mark attendance now</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Register ─── -->
+            <section id="page-register" class="page-section">
+                <div class="page-header">
+                    <h2>Register Employee</h2>
+                    <p>Capture face and register a new employee</p>
+                </div>
+                <div class="camera-section">
+                    <div>
+                        <div class="camera-container" id="register-camera-container">
+                            <video id="register-video" autoplay playsinline></video>
+                            <canvas id="register-canvas"></canvas>
+                            <div class="scan-overlay">
+                                <div class="corner tl"></div>
+                                <div class="corner tr"></div>
+                                <div class="corner bl"></div>
+                                <div class="corner br"></div>
+                            </div>
+                            <div class="scan-line" id="register-scan-line"></div>
+                            <div class="camera-status">
+                                <div class="status-badge">
+                                    <div class="status-dot" id="register-status-dot"></div>
+                                    <span id="register-cam-status">Starting camera...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 20px;">
+                            <button class="capture-btn" id="register-capture-btn" onclick="captureForRegister()" title="Capture Face">📸</button>
+                        </div>
+                        <div class="preview-container" id="register-preview" style="display: none;">
+                            <img id="register-preview-img" src="" alt="Captured face">
+                            <p>Face captured successfully</p>
+                        </div>
+                    </div>
+                    <div class="glass-card">
+                        <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 24px;">Employee Details</h3>
+                        <form id="register-form" onsubmit="submitRegistration(event)">
+                            <div class="form-group">
+                                <label>Full Name</label>
+                                <input type="text" id="reg-name" placeholder="e.g. Aashay Sharma" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Employee ID</label>
+                                <input type="text" id="reg-id" placeholder="e.g. EMP-001" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Department</label>
+                                <select id="reg-department">
+                                    <option value="General">General</option>
+                                    <option value="Engineering">Engineering</option>
+                                    <option value="Design">Design</option>
+                                    <option value="Marketing">Marketing</option>
+                                    <option value="Sales">Sales</option>
+                                    <option value="HR">Human Resources</option>
+                                    <option value="Finance">Finance</option>
+                                    <option value="Operations">Operations</option>
+                                    <option value="Management">Management</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-lg" id="register-submit-btn" style="width: 100%;" disabled>
+                                <span class="btn-text">Register Employee</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Attendance ─── -->
+            <section id="page-attendance" class="page-section">
+                <div class="page-header">
+                    <h2>Mark Attendance</h2>
+                    <p>Scan a face to automatically check in or check out</p>
+                </div>
+                <div class="camera-section">
+                    <div>
+                        <div class="camera-container" id="attendance-camera-container">
+                            <video id="attendance-video" autoplay playsinline></video>
+                            <canvas id="attendance-canvas"></canvas>
+                            <div class="scan-overlay">
+                                <div class="corner tl"></div>
+                                <div class="corner tr"></div>
+                                <div class="corner bl"></div>
+                                <div class="corner br"></div>
+                            </div>
+                            <div class="scan-line" id="attendance-scan-line"></div>
+                            <div class="camera-status">
+                                <div class="status-badge">
+                                    <div class="status-dot" id="attendance-status-dot"></div>
+                                    <span id="attendance-cam-status">Starting camera...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 20px;">
+                            <button class="capture-btn" id="attendance-capture-btn" onclick="captureForAttendance()" title="Scan Face" style="background: var(--gradient-success); box-shadow: var(--shadow-glow-green);">📷</button>
+                        </div>
+                    </div>
+                    <div id="attendance-result">
+                        <div class="glass-card" style="text-align: center; padding: 48px 28px;">
+                            <div style="font-size: 4rem; margin-bottom: 16px; opacity: 0.3;">📷</div>
+                            <h3 style="color: var(--text-secondary); margin-bottom: 8px;">Ready to Scan</h3>
+                            <p style="color: var(--text-muted); font-size: 0.9rem;">Position your face in the frame and click the scan button</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Records ─── -->
+            <section id="page-records" class="page-section">
+                <div class="page-header">
+                    <h2>Attendance Records</h2>
+                    <p>View and filter all attendance entries</p>
+                </div>
+                <div class="filter-bar">
+                    <input type="date" id="filter-start" title="Start date">
+                    <input type="date" id="filter-end" title="End date">
+                    <button class="btn btn-primary btn-sm" onclick="loadRecords()">Apply Filter</button>
+                    <button class="btn btn-outline btn-sm" onclick="clearFilters()">Clear</button>
+                    <button class="btn btn-outline btn-sm" onclick="exportCSV()" style="margin-left: auto;">⬇ Export CSV</button>
+                </div>
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Employee</th>
+                                <th>Employee ID</th>
+                                <th>Department</th>
+                                <th>Date & Time</th>
+                                <th>Status</th>
+                                <th>Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody id="records-tbody">
+                            <tr>
+                                <td colspan="6">
+                                    <div class="empty-state">
+                                        <div class="empty-icon">📋</div>
+                                        <h3>No records found</h3>
+                                        <p>Attendance records will appear here after scanning</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ─── Employees ─── -->
+            <section id="page-employees" class="page-section">
+                <div class="page-header">
+                    <h2>Registered Employees</h2>
+                    <p>Manage all registered employee faces</p>
+                </div>
+                <div class="employees-grid" id="employees-grid">
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <div class="empty-icon">👥</div>
+                        <h3>No employees registered</h3>
+                        <p>Register employees from the "Register Face" page</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Analytics ─── -->
+            <section id="page-analytics" class="page-section">
+                <div class="page-header">
+                    <h2>Analytics</h2>
+                    <p>Attendance insights and trends</p>
+                </div>
+                <div class="stats-grid" id="analytics-stats">
+                    <div class="stat-card blue">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-value" id="a-stat-total">0</div>
+                        <div class="stat-label">Total Employees</div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-value" id="a-stat-present">0</div>
+                        <div class="stat-label">Present Today</div>
+                    </div>
+                    <div class="stat-card red">
+                        <div class="stat-icon">❌</div>
+                        <div class="stat-value" id="a-stat-absent">0</div>
+                        <div class="stat-label">Absent Today</div>
+                    </div>
+                    <div class="stat-card purple">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-value" id="a-stat-rate">0%</div>
+                        <div class="stat-label">Attendance Rate</div>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>7-Day Attendance Trend</h3>
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Department Breakdown</h3>
+                        <canvas id="deptChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
