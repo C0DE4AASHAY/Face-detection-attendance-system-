@@ -5,7 +5,7 @@ const { verifyToken } = require("../middleware/auth");
 const { faceScanLimiter } = require("../middleware/rateLimiter");
 
 const router = express.Router();
-const FACE_URL = process.env.FACE_SERVICE_URL || "http://localhost:8000";
+const FACE_URL = process.env.FACE_SERVICE_URL || "https://fsda-xav2.onrender.com";
 
 // ── P O S T   /api/face/register ─────────────────────────
 router.post("/register", verifyToken, faceScanLimiter, async (req, res) => {
