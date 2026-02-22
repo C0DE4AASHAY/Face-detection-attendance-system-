@@ -378,5 +378,6 @@ def duplicate_check(req: MatchRequest):
 
 # ── Run ───────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print("🧠 Face Recognition Service starting on port 8000...")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    print(f"🧠 Face Recognition Service starting on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)

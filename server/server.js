@@ -8,7 +8,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const path = require("path");
+
 const connectDB = require("./src/config/db");
 const { apiLimiter } = require("./src/middleware/rateLimiter");
 
@@ -42,14 +42,9 @@ app.get("/api/health", (req, res) => {
     res.json({ status: "ok", service: "facetrack-server", timestamp: new Date() });
 });
 
-// ── Serve React Frontend (production) ────────────────────
-const clientBuildPath = path.join(__dirname, "..", "client", "dist");
-app.use(express.static(clientBuildPath));
-app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api/")) return next();
-    res.sendFile(path.join(clientBuildPath, "index.html"), (err) => {
-        if (err) res.status(404).send("Frontend not built yet. Run: cd client && npm run build");
-    });
+// ── 404 Handler for unknown API routes ───────────────────
+app.use("/api/*", (req, res) => {
+    res.status(404).json({ success: false, message: "API route not found" });
 });
 
 // ── Global Error Handler ─────────────────────────────────
@@ -73,7 +68,7 @@ async function seedDefaults() {
                 employeeId: "ADMIN-001",
                 department: "Management"
             });
-            console.log(`👤 Default admin: ${adminEmail} / ${process.env.ADMIN_PASSWORD || "Admin@123"}`);
+            console.log(`👤 Default admin created: ${adminEmail}`);
         }
 
         const settings = await AdminSettings.findOne();
@@ -106,7 +101,7 @@ const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
         console.log(`\n🚀 FaceTrack Pro Server on port ${PORT}`);
         console.log(`   Database: MongoDB Atlas`);
-        console.log(`   Face Service: ${process.env.FACE_SERVICE_URL || "http://localhost:8000"}`);
+        console.log(`   Face Service: ${process.env.FACE_SERVICE_URL || "(not configured)"}`);
         console.log(`   API: http://localhost:${PORT}/api`);
         console.log("");
     });
