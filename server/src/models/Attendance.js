@@ -1,52 +1,28 @@
 const mongoose = require("mongoose");
 
-const attendanceSchema = new mongoose.Schema(
-    {
-        userId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-            required: true,
-        },
-        date: {
-            type: String, // "2026-02-21" format for easy duplicate checking
-            required: true,
-        },
+const attendanceSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    date: { type: String, required: true }, // YYYY-MM-DD format
 
-        checkIn: {
-            time: Date,
-            confidence: Number,
-            method: {
-                type: String,
-                enum: ["face_scan", "manual_admin"],
-                default: "face_scan",
-            },
-            liveness: Boolean,
-        },
-
-        checkOut: {
-            time: Date,
-            confidence: Number,
-            method: {
-                type: String,
-                enum: ["face_scan", "manual_admin"],
-                default: "face_scan",
-            },
-            liveness: Boolean,
-        },
-
-        status: {
-            type: String,
-            enum: ["present", "late", "half-day", "absent"],
-            default: "present",
-        },
+    checkIn: {
+        time: Date,
+        confidence: Number, // Face match score
+        method: { type: String, enum: ["face_scan", "manual", "qr"], default: "face_scan" },
+        liveness: { type: Boolean, default: true }
     },
-    {
-        timestamps: true,
-    }
-);
 
-// Compound unique index: prevents duplicate attendance for same user on same day
+    checkOut: {
+        time: Date,
+        confidence: Number,
+        method: { type: String, enum: ["face_scan", "manual", "qr"], default: "face_scan" },
+        liveness: { type: Boolean, default: true }
+    },
+
+    status: { type: String, enum: ["present", "absent", "late", "half_day"], default: "present" },
+    notes: String
+}, { timestamps: true });
+
+// Ensure a user can only have one attendance record per day
 attendanceSchema.index({ userId: 1, date: 1 }, { unique: true });
-attendanceSchema.index({ date: 1 });
 
 module.exports = mongoose.model("Attendance", attendanceSchema);

@@ -1,7 +1,7 @@
 /**
  * FaceTrack Pro — Express Server Entry Point
  * Production-ready attendance system with face recognition.
- * Uses NeDB (embedded database) — zero external dependencies.
+ * Connected to MongoDB Atlas.
  */
 
 require("dotenv").config();
@@ -9,9 +9,12 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const path = require("path");
-const bcrypt = require("bcryptjs");
-const db = require("./src/config/db");
+const connectDB = require("./src/config/db");
 const { apiLimiter } = require("./src/middleware/rateLimiter");
+
+// Models
+const User = require("./src/models/User");
+const AdminSettings = require("./src/models/AdminSettings");
 
 const app = express();
 
@@ -59,38 +62,50 @@ app.use((err, req, res, next) => {
 async function seedDefaults() {
     try {
         const adminEmail = process.env.ADMIN_EMAIL || "admin@facetrack.com";
-        const existing = await db.users.findOne({ email: adminEmail });
+        const existing = await User.findOne({ email: adminEmail });
+
         if (!existing) {
-            const salt = await bcrypt.genSalt(12);
-            const hashed = await bcrypt.hash(process.env.ADMIN_PASSWORD || "Admin@123", salt);
-            await db.users.insert({
-                name: "Admin", email: adminEmail, password: hashed,
-                role: "admin", employeeId: "ADMIN-001", department: "Management",
-                status: "active", faceEmbedding: null, loginAttempts: 0,
-                lockUntil: null, lastLogin: null, createdAt: new Date(),
+            await User.create({
+                name: "Admin",
+                email: adminEmail,
+                password: process.env.ADMIN_PASSWORD || "Admin@123",
+                role: "admin",
+                employeeId: "ADMIN-001",
+                department: "Management"
             });
             console.log(`👤 Default admin: ${adminEmail} / ${process.env.ADMIN_PASSWORD || "Admin@123"}`);
         }
 
-        const settings = await db.settings.findOne({});
+        const settings = await AdminSettings.findOne();
         if (!settings) {
-            await db.settings.insert({
-                arrivalTime: "09:00", arrivalDeadline: "09:30",
-                departureStart: "17:00", departureEnd: "18:00",
-                faceRecognition: { matchThreshold: 0.55, duplicateThreshold: 0.65, livenessRequired: true, maxScanAttempts: 10 },
+            await AdminSettings.create({
+                arrivalTime: "09:00",
+                arrivalDeadline: "09:30",
+                departureStart: "17:00",
+                departureEnd: "18:00",
+                faceRecognition: {
+                    matchThreshold: 0.55,
+                    duplicateThreshold: 0.65,
+                    livenessRequired: true,
+                    maxScanAttempts: 10
+                }
             });
             console.log("⚙️  Default settings created");
         }
-    } catch (err) { console.error("Seed error:", err.message); }
+    } catch (err) {
+        console.error("Seed error:", err.message);
+    }
 }
 
 // ── Start ────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 (async () => {
+    await connectDB();
     await seedDefaults();
+
     app.listen(PORT, () => {
         console.log(`\n🚀 FaceTrack Pro Server on port ${PORT}`);
-        console.log(`   Database: NeDB (embedded, file-based)`);
+        console.log(`   Database: MongoDB Atlas`);
         console.log(`   Face Service: ${process.env.FACE_SERVICE_URL || "http://localhost:8000"}`);
         console.log(`   API: http://localhost:${PORT}/api`);
         console.log("");

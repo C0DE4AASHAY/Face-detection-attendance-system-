@@ -1,8 +1,7 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
 const { body, validationResult } = require("express-validator");
-const db = require("../config/db");
+const User = require("../models/User");
 const { loginLimiter } = require("../middleware/rateLimiter");
 
 const router = express.Router();
@@ -21,7 +20,7 @@ function generateTokens(user) {
     return { accessToken, refreshToken };
 }
 
-// ── POST /api/auth/register ──────────────────────────────
+// ── P O S T   /api/auth/register ─────────────────────────
 router.post(
     "/register",
     [
@@ -40,134 +39,156 @@ router.post(
 
             const { name, email, password, employeeId, department } = req.body;
 
-            const existingEmail = await db.users.findOne({ email });
-            if (existingEmail) return res.status(409).json({ success: false, message: "Email already registered" });
+            const userExists = await User.findOne({ $or: [{ email }, { employeeId }] });
+            if (userExists) {
+                return res.status(409).json({ success: false, message: "Email or Employee ID already exists." });
+            }
 
-            const existingEmp = await db.users.findOne({ employeeId });
-            if (existingEmp) return res.status(409).json({ success: false, message: "Employee ID already exists" });
-
-            const salt = await bcrypt.genSalt(12);
-            const hashedPassword = await bcrypt.hash(password, salt);
-
-            const user = await db.users.insert({
+            const user = await User.create({
                 name,
                 email,
-                password: hashedPassword,
+                password, // auto-hashed by Mongoose pre-save
                 employeeId,
-                department: department || "General",
-                role: "student",
-                status: "active",
-                faceEmbedding: null,
-                loginAttempts: 0,
-                lockUntil: null,
-                lastLogin: null,
-                createdAt: new Date(),
+                department: department || "General"
             });
 
             const tokens = generateTokens(user);
-            await db.users.update({ _id: user._id }, { $set: { refreshToken: tokens.refreshToken } });
+            user.refreshToken = tokens.refreshToken;
+            await user.save();
 
             res.status(201).json({
                 success: true,
                 message: "Registration successful",
-                user: { id: user._id, name: user.name, email: user.email, role: user.role, employeeId: user.employeeId, department: user.department, hasFace: false },
+                user: {
+                    id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    employeeId: user.employeeId,
+                    department: user.department,
+                    hasFace: false
+                },
                 ...tokens,
             });
         } catch (err) {
-            console.error("Register error:", err);
-            if (err.errorType === "uniqueViolated") return res.status(409).json({ success: false, message: "Email or Employee ID already exists" });
-            res.status(500).json({ success: false, message: "Server error" });
+            console.error("Register Error:", err);
+            res.status(500).json({ success: false, message: "Server error during registration." });
         }
     }
 );
 
-// ── POST /api/auth/login ─────────────────────────────────
+// ── P O S T   /api/auth/login ────────────────────────────
 router.post(
     "/login",
     loginLimiter,
-    [body("email").isEmail().normalizeEmail(), body("password").notEmpty()],
+    [
+        body("email").isEmail().normalizeEmail(),
+        body("password").notEmpty(),
+    ],
     async (req, res) => {
         try {
             const errors = validationResult(req);
-            if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
+            if (!errors.isEmpty()) {
+                return res.status(400).json({ success: false, errors: errors.array() });
+            }
 
             const { email, password } = req.body;
-            const user = await db.users.findOne({ email });
+            const user = await User.findOne({ email });
 
-            if (!user) return res.status(401).json({ success: false, message: "Invalid email or password" });
-
-            // Check lock
-            if (user.lockUntil && new Date(user.lockUntil) > new Date()) {
-                return res.status(423).json({ success: false, message: "Account locked. Try again in 15 minutes." });
-            }
-
-            if (user.status !== "active") {
-                return res.status(403).json({ success: false, message: `Account is ${user.status}. Contact admin.` });
-            }
-
-            const isMatch = await bcrypt.compare(password, user.password);
-            if (!isMatch) {
-                const attempts = (user.loginAttempts || 0) + 1;
-                const updates = { loginAttempts: attempts };
-                if (attempts >= 5) updates.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
-                await db.users.update({ _id: user._id }, { $set: updates });
+            if (!user) {
                 return res.status(401).json({ success: false, message: "Invalid email or password" });
             }
 
-            await db.users.update({ _id: user._id }, { $set: { loginAttempts: 0, lockUntil: null, lastLogin: new Date() } });
+            // Check account lock
+            if (user.lockUntil && user.lockUntil > Date.now()) {
+                const remainingTime = Math.ceil((user.lockUntil - Date.now()) / 60000);
+                return res.status(423).json({ success: false, message: `Account locked. Try again in ${remainingTime} minutes.` });
+            }
+
+            // Check account status
+            if (user.status !== "active") {
+                return res.status(403).json({ success: false, message: `Account is ${user.status}. Contact administrator.` });
+            }
+
+            const isMatch = await user.matchPassword(password);
+
+            if (!isMatch) {
+                user.loginAttempts += 1;
+                if (user.loginAttempts >= 5) {
+                    user.lockUntil = Date.now() + 15 * 60 * 1000; // Lock for 15 mins
+                }
+                await user.save();
+                return res.status(401).json({ success: false, message: "Invalid email or password" });
+            }
+
+            // Login successful, reset lock
+            user.loginAttempts = 0;
+            user.lockUntil = undefined;
+            user.lastLogin = Date.now();
 
             const tokens = generateTokens(user);
-            await db.users.update({ _id: user._id }, { $set: { refreshToken: tokens.refreshToken } });
+            user.refreshToken = tokens.refreshToken;
+            await user.save();
 
             res.json({
                 success: true,
                 message: "Login successful",
                 user: {
-                    id: user._id, name: user.name, email: user.email, role: user.role,
-                    employeeId: user.employeeId, department: user.department,
-                    hasFace: !!user.faceEmbedding?.vector?.length,
+                    id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    employeeId: user.employeeId,
+                    department: user.department,
+                    hasFace: !!(user.faceEmbedding && user.faceEmbedding.vector && user.faceEmbedding.vector.length > 0),
                     thumbnail: user.faceEmbedding?.thumbnail || null,
                 },
                 ...tokens,
             });
         } catch (err) {
-            console.error("Login error:", err);
-            res.status(500).json({ success: false, message: "Server error" });
+            console.error("Login Error:", err);
+            res.status(500).json({ success: false, message: "Server error during login." });
         }
     }
 );
 
-// ── POST /api/auth/refresh ───────────────────────────────
+// ── P O S T   /api/auth/refresh ──────────────────────────
 router.post("/refresh", async (req, res) => {
     try {
         const { refreshToken } = req.body;
-        if (!refreshToken) return res.status(401).json({ success: false, message: "Refresh token required" });
+        if (!refreshToken) {
+            return res.status(401).json({ success: false, message: "Refresh token required" });
+        }
 
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-        const user = await db.users.findOne({ _id: decoded.id });
+        const user = await User.findById(decoded.id);
 
         if (!user || user.refreshToken !== refreshToken) {
             return res.status(403).json({ success: false, message: "Invalid refresh token" });
         }
 
         const tokens = generateTokens(user);
-        await db.users.update({ _id: user._id }, { $set: { refreshToken: tokens.refreshToken } });
+        user.refreshToken = tokens.refreshToken;
+        await user.save();
+
         res.json({ success: true, ...tokens });
     } catch (err) {
         res.status(403).json({ success: false, message: "Invalid or expired refresh token" });
     }
 });
 
-// ── POST /api/auth/logout ────────────────────────────────
+// ── P O S T   /api/auth/logout ───────────────────────────
 router.post("/logout", async (req, res) => {
     try {
         const { refreshToken } = req.body;
         if (refreshToken) {
             const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-            await db.users.update({ _id: decoded.id }, { $set: { refreshToken: null } });
+            await User.findByIdAndUpdate(decoded.id, { refreshToken: null });
         }
-    } catch { /* ignore */ }
-    res.json({ success: true, message: "Logged out" });
+    } catch (err) {
+        // Ignore invalid tokens on logout
+    }
+    res.json({ success: true, message: "Logged out successfully" });
 });
 
 module.exports = router;
