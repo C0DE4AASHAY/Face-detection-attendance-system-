@@ -71,7 +71,7 @@ def detect_face(image_rgb: np.ndarray):
     """Detect faces. Returns list of (x, y, w, h)."""
     gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
     faces = face_cascade.detectMultiScale(
-        gray, scaleFactor=1.1, minNeighbors=7, minSize=(80, 80)
+        gray, scaleFactor=1.1, minNeighbors=4, minSize=(80, 80)
     )
     return faces if len(faces) > 0 else []
 
@@ -255,11 +255,11 @@ def validate_quality(image_rgb: np.ndarray) -> dict:
     blur = cv2.Laplacian(gray, cv2.CV_64F).var()
 
     issues = []
-    if brightness < 40:
+    if brightness < 20:
         issues.append("Image too dark")
-    if brightness > 230:
+    if brightness > 245:
         issues.append("Image too bright")
-    if blur < 50:
+    if blur < 15:
         issues.append("Image too blurry")
 
     return {
