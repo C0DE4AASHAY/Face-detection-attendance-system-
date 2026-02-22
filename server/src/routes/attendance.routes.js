@@ -20,8 +20,9 @@ router.post("/mark", verifyToken, async (req, res) => {
             return res.status(404).json({ success: false, message: "User not found." });
         }
 
-        const todayString = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-        const now = new Date();
+        const d = new Date();
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        const todayString = d.toISOString().split("T")[0];
 
         // Fetch system settings
         let settings = await AdminSettings.findOne();
@@ -65,6 +66,20 @@ router.post("/mark", verifyToken, async (req, res) => {
             });
         }
 
+        
+// ADD THIS COOLDOWN CHECK: Prevent checking out within 5 minutes (300000ms) of checking in
+        if (attendance.checkIn && attendance.checkIn.time) {
+            const timeDiff = now.getTime() - new Date(attendance.checkIn.time).getTime();
+            if (timeDiff < 300000) {
+                return res.status(429).json({
+                    success: false,
+                    message: "Face recognized, but you must wait 5 minutes before checking out."
+                });
+            }
+        }
+
+        attendance.checkOut = {
+            
         // ==== CHECK OUT ====
         if (attendance.checkOut && attendance.checkOut.time) {
             return res.status(409).json({
