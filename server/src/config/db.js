@@ -4,8 +4,14 @@
  */
 const Datastore = require("nedb-promises");
 const path = require("path");
+const fs = require("fs");
 
 const DATA_DIR = path.join(__dirname, "..", "..", "data");
+
+// Create data directory if it doesn't exist (fixes Render 500 error)
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
 const db = {
     users: Datastore.create({ filename: path.join(DATA_DIR, "users.db"), autoload: true }),
