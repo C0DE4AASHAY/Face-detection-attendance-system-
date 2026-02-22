@@ -272,6 +272,16 @@ def validate_quality(image_rgb: np.ndarray) -> dict:
 
 # ── API Endpoints ─────────────────────────────────────────────
 
+@app.get("/")
+def root():
+    return {
+        "service": "FaceTrack Face Recognition API",
+        "version": "2.0",
+        "status": "running",
+        "endpoints": ["/health", "/embed", "/match", "/liveness", "/duplicate-check"]
+    }
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "face-recognition", "version": "2.0"}
