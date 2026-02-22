@@ -9,6 +9,24 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 
+// ── Validate required env vars ───────────────────────────
+const REQUIRED_ENV = ["MONGODB_URI"];
+const missing = REQUIRED_ENV.filter(key => !process.env[key]);
+if (missing.length > 0) {
+    console.error(`❌ Missing required environment variables: ${missing.join(", ")}`);
+    process.exit(1);
+}
+
+// Provide fallback secrets for development, but warn
+if (!process.env.JWT_SECRET) {
+    process.env.JWT_SECRET = "dev-fallback-jwt-secret-CHANGE-IN-PRODUCTION";
+    console.warn("⚠️  JWT_SECRET not set — using insecure fallback. Set this in production!");
+}
+if (!process.env.JWT_REFRESH_SECRET) {
+    process.env.JWT_REFRESH_SECRET = "dev-fallback-refresh-secret-CHANGE-IN-PRODUCTION";
+    console.warn("⚠️  JWT_REFRESH_SECRET not set — using insecure fallback. Set this in production!");
+}
+
 const connectDB = require("./src/config/db");
 const { apiLimiter } = require("./src/middleware/rateLimiter");
 
