@@ -18,7 +18,10 @@ const app = express();
 // ── Security Middleware ──────────────────────────────────
 app.use(helmet({ crossOriginEmbedderPolicy: false, contentSecurityPolicy: false }));
 app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(",") || ["http://localhost:3000", "http://localhost:5173"],
+    origin: function (origin, callback) {
+        // Allow any origin — useful for Vercel preview environments
+        callback(null, true);
+    },
     credentials: true,
 }));
 app.use(express.json({ limit: "10mb" }));
