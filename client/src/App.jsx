@@ -208,7 +208,7 @@ function FaceRegisterPage({ user, setUser, toast }) {
             } else {
                 toast(data?.message || 'Face registration failed', 'error');
             }
-        } catch { toast('Server error — ensure face service is running', 'error'); }
+        } catch (err) { toast(err?.message || 'Server error — face service may be starting up. Try again in 30 seconds.', 'error'); }
         setLoading(false);
         if (scanRef.current) scanRef.current.classList.remove('active');
     };
@@ -287,7 +287,7 @@ function ScanPage({ user, toast }) {
                 setResult({ success: false, message: attendData?.message });
                 toast(attendData?.message || 'Failed to mark attendance', 'error');
             }
-        } catch { toast('Server error', 'error'); setResult({ success: false, message: 'Server error' }); }
+        } catch (err) { toast(err?.message || 'Server error — face service may be warming up. Try again in 30s.', 'error'); setResult({ success: false, message: 'Face service may be starting up. Please retry.' }); }
         setLoading(false);
         if (scanRef.current) scanRef.current.classList.remove('active');
     };
@@ -305,6 +305,7 @@ function ScanPage({ user, toast }) {
                     </div>
                     <div style={{ textAlign: 'center', marginTop: 18 }}>
                         <button className="capture-btn green" onClick={handleScan} disabled={loading} title="Scan Face">{loading ? '⏳' : '📷'}</button>
+                        {loading && <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 8 }}>Analyzing face... This may take a moment on first scan.</p>}
                     </div>
                 </div>
                 <div>

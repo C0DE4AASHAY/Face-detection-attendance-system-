@@ -7,6 +7,55 @@ const { faceScanLimiter } = require("../middleware/rateLimiter");
 const router = express.Router();
 const FACE_URL = process.env.FACE_SERVICE_URL || "http://localhost:8000";
 
+// ── Retry helper for face service calls ──────────────────
+async function fetchWithRetry(url, options, retries = 1, delayMs = 3000) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const res = await fetch(url, options);
+            // If server error (5xx) and we have retries left, retry
+            if (res.status >= 500 && attempt < retries) {
+                console.log(`⚠️ Face service returned ${res.status}, retrying in ${delayMs}ms... (attempt ${attempt + 1})`);
+                await new Promise(r => setTimeout(r, delayMs));
+                continue;
+            }
+            return res;
+        } catch (err) {
+            if (attempt < retries) {
+                console.log(`⚠️ Face service unreachable, retrying in ${delayMs}ms... (attempt ${attempt + 1})`);
+                await new Promise(r => setTimeout(r, delayMs));
+                continue;
+            }
+            throw err;
+        }
+    }
+}
+
+// ── Safe JSON parse helper ───────────────────────────────
+async function safeJsonError(res, fallbackMsg) {
+    try {
+        const data = await res.json();
+        return data.detail || fallbackMsg;
+    } catch {
+        try { return await res.text(); } catch { return fallbackMsg; }
+    }
+}
+
+// ── G E T   /api/face/health ─────────────────────────────
+router.get("/health", async (req, res) => {
+    try {
+        const healthRes = await fetch(`${FACE_URL}/health`, {
+            signal: AbortSignal.timeout(10000),
+        });
+        const data = await healthRes.json();
+        res.json({ success: true, faceService: data });
+    } catch (err) {
+        res.status(503).json({
+            success: false,
+            message: "Face service is unavailable. It may be warming up — please try again in 30 seconds.",
+        });
+    }
+});
+
 // ── P O S T   /api/face/register ─────────────────────────
 router.post("/register", verifyToken, faceScanLimiter, async (req, res) => {
     try {
@@ -35,7 +84,7 @@ router.post("/register", verifyToken, faceScanLimiter, async (req, res) => {
             }));
 
             // Call face service for duplicate check
-            const dupRes = await fetch(`${FACE_URL}/duplicate-check`, {
+            const dupRes = await fetchWithRetry(`${FACE_URL}/duplicate-check`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -47,8 +96,7 @@ router.post("/register", verifyToken, faceScanLimiter, async (req, res) => {
             });
 
             if (!dupRes.ok) {
-                let errMsg = "Duplicate check failed.";
-                try { const e = await dupRes.json(); errMsg = e.detail || errMsg; } catch { errMsg = await dupRes.text().catch(() => errMsg); }
+                const errMsg = await safeJsonError(dupRes, "Duplicate check failed.");
                 return res.status(502).json({ success: false, message: errMsg });
             }
 
@@ -63,7 +111,7 @@ router.post("/register", verifyToken, faceScanLimiter, async (req, res) => {
         }
 
         // 2. Generate new embedding
-        const embedRes = await fetch(`${FACE_URL}/embed`, {
+        const embedRes = await fetchWithRetry(`${FACE_URL}/embed`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ image }),
@@ -71,8 +119,7 @@ router.post("/register", verifyToken, faceScanLimiter, async (req, res) => {
         });
 
         if (!embedRes.ok) {
-            let errMsg = "Failed to process face.";
-            try { const e = await embedRes.json(); errMsg = e.detail || errMsg; } catch { errMsg = await embedRes.text().catch(() => errMsg); }
+            const errMsg = await safeJsonError(embedRes, "Failed to process face.");
             return res.status(502).json({ success: false, message: errMsg });
         }
 
@@ -97,7 +144,13 @@ router.post("/register", verifyToken, faceScanLimiter, async (req, res) => {
 
     } catch (err) {
         console.error("Face Register Error:", err);
-        res.status(500).json({ success: false, message: "Face service error. Is the Python service running?" });
+        const isTimeout = err.name === "AbortError" || err.name === "TimeoutError";
+        res.status(500).json({
+            success: false,
+            message: isTimeout
+                ? "Face service is slow to respond (cold start). Please try again in 30 seconds."
+                : "Face service error. Is the Python service running?"
+        });
     }
 });
 
@@ -124,8 +177,8 @@ router.post("/scan", verifyToken, faceScanLimiter, async (req, res) => {
             embedding: u.faceEmbedding.vector
         }));
 
-        // Call Face Service for matching
-        const matchRes = await fetch(`${FACE_URL}/match`, {
+        // Call Face Service for matching — WITH RETRY
+        const matchRes = await fetchWithRetry(`${FACE_URL}/match`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -137,8 +190,7 @@ router.post("/scan", verifyToken, faceScanLimiter, async (req, res) => {
         });
 
         if (!matchRes.ok) {
-            let errMsg = "Face recognition failed.";
-            try { const e = await matchRes.json(); errMsg = e.detail || errMsg; } catch { errMsg = await matchRes.text().catch(() => errMsg); }
+            const errMsg = await safeJsonError(matchRes, "Face recognition failed.");
             return res.status(502).json({ success: false, message: errMsg });
         }
 
@@ -154,6 +206,10 @@ router.post("/scan", verifyToken, faceScanLimiter, async (req, res) => {
 
         // Find the matched user
         const matchedUser = usersWithFaces.find(u => u._id.toString() === matchData.user_id);
+
+        if (!matchedUser) {
+            return res.status(404).json({ success: false, message: "Matched user not found in database." });
+        }
 
         res.json({
             success: true,
@@ -172,7 +228,13 @@ router.post("/scan", verifyToken, faceScanLimiter, async (req, res) => {
 
     } catch (err) {
         console.error("Face Scan Error:", err);
-        res.status(500).json({ success: false, message: "Face service timeout or error. Ensure the Python API is running." });
+        const isTimeout = err.name === "AbortError" || err.name === "TimeoutError";
+        res.status(500).json({
+            success: false,
+            message: isTimeout
+                ? "Face service is slow to respond (cold start). Please wait 30 seconds and try again."
+                : "Face service error. Please try again."
+        });
     }
 });
 

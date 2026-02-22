@@ -112,6 +112,25 @@ async function seedDefaults() {
 
 // ── Start ────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
+
+// Non-blocking warm-up for face recognition service (Render cold starts)
+async function warmFaceService() {
+    const FACE_URL = process.env.FACE_SERVICE_URL;
+    if (!FACE_URL) return;
+
+    console.log("🔄 Warming up face recognition service...");
+    try {
+        const fetch = require("node-fetch");
+        const res = await fetch(`${FACE_URL}/health`, {
+            signal: AbortSignal.timeout(60000),
+        });
+        const data = await res.json();
+        console.log(`✅ Face service is ready: ${JSON.stringify(data)}`);
+    } catch (err) {
+        console.warn("⚠️  Face service warm-up failed (may still be starting):", err.message);
+    }
+}
+
 (async () => {
     await connectDB();
     await seedDefaults();
@@ -123,4 +142,7 @@ const PORT = process.env.PORT || 5000;
         console.log(`   API: http://localhost:${PORT}/api`);
         console.log("");
     });
+
+    // Fire-and-forget warm-up — don't block the server
+    warmFaceService();
 })();
